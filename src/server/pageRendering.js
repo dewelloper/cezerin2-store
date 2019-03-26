@@ -16,6 +16,8 @@ import App from '../shared/app';
 import fs from 'fs';
 import path from 'path';
 
+const FILE_PATH = path.resolve('theme/assets/index.html');
+
 initOnServer({
 	language: serverSettings.language,
 	api: new CezerinClient({
@@ -96,8 +98,6 @@ const getPlaceholder = placeholders => {
 
 	return placeholder;
 };
-
-const FILE_PATH = path.resolve('theme/assets/index.html');
 
 const renderPage = (req, res, store, themeText, placeholders) => {
 	const appHtml = getAppHtml(store, req.url);
