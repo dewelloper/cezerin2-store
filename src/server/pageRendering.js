@@ -16,7 +16,35 @@ import App from '../shared/app';
 import fs from 'fs';
 import path from 'path';
 
-const FILE_PATH = path.resolve('theme/assets/index.html');
+
+var IndexHtmlSingleton = (function () {
+    var indexHtmlInstance;
+ 
+    async function createInstance() {
+		const FILE_PATH = path.resolve('theme/assets/index.html');
+		fs.readFile(FILE_PATH, 'utf8', (err, data) => {
+			if (err) {
+				indexHtmlInstance = '';
+				winston.error('Fail to read file', FILE_PATH, err);
+			} else {
+				indexHtmlInstance = data;
+			}
+			return indexHtmlInstance;
+		});
+    }
+ 
+    return {
+        getInstance: async function () {
+            if (!indexHtmlInstance) {
+                indexHtmlInstance = await createInstance();
+            }
+            return indexHtmlInstance;
+        }
+    };
+})();
+
+
+
 
 initOnServer({
 	language: serverSettings.language,
@@ -105,47 +133,38 @@ const renderPage = (req, res, store, themeText, placeholders) => {
 	const head = getHead();
 	const placeholder = getPlaceholder(placeholders);
 
-	fs.readFile(FILE_PATH, 'utf8', (err, data) => {
-		if (err) {
-		 	let indexHtml = '';
-			winston.error('Fail to read file', FILE_PATH, err);
-		} else {
-			let indexHtml = data;
-
-			const html = indexHtml
-			.replace('{placeholder_head_start}', placeholder.head_start)
-			.replace('{placeholder_head_end}', placeholder.head_end)
-			.replace('{placeholder_body_start}', placeholder.body_start)
-			.replace('{placeholder_body_end}', placeholder.body_end)
-			.replace('{language}', serverSettings.language)
-			.replace('{title}', head.title)
-			.replace('{meta}', head.meta)
-			.replace('{link}', head.link)
-			.replace('{script}', head.script)
-			.replace('{app_text}', JSON.stringify(themeText))
-			.replace('{app_state}', JSON.stringify(state))
-			.replace('{app}', appHtml);
+	IndexHtmlSingleton.getInstance(async html => {
+		html
+		.replace('{placeholder_head_start}', placeholder.head_start)
+		.replace('{placeholder_head_end}', placeholder.head_end)
+		.replace('{placeholder_body_start}', placeholder.body_start)
+		.replace('{placeholder_body_end}', placeholder.body_end)
+		.replace('{language}', serverSettings.language)
+		.replace('{title}', head.title)
+		.replace('{meta}', head.meta)
+		.replace('{link}', head.link)
+		.replace('{script}', head.script)
+		.replace('{app_text}', JSON.stringify(themeText))
+		.replace('{app_state}', JSON.stringify(state))
+		.replace('{app}', appHtml);
 	
-			const isHttps = req.protocol === 'https';
-			const full_url = `${req.protocol}://${req.hostname}${req.url}`;
-			const referrer_url =
-				req.get('referrer') === undefined ? '' : req.get('referrer');
-			const REFERRER_COOKIE_OPTIONS = getReferrerCookieOptions(isHttps);
-		
-			if (!req.signedCookies.referrer_url) {
-				res.cookie('referrer_url', referrer_url, REFERRER_COOKIE_OPTIONS);
-			}
-		
-			if (!req.signedCookies.landing_url) {
-				res.cookie('landing_url', full_url, REFERRER_COOKIE_OPTIONS);
-			}
-		
-			const httpStatusCode = state.app.currentPage.type === 404 ? 404 : 200;
-			res.status(httpStatusCode).send(html);			
+		const isHttps = req.protocol === 'https';
+		const full_url = `${req.protocol}://${req.hostname}${req.url}`;
+		const referrer_url =
+			req.get('referrer') === undefined ? '' : req.get('referrer');
+		const REFERRER_COOKIE_OPTIONS = getReferrerCookieOptions(isHttps);
+	
+		if (!req.signedCookies.referrer_url) {
+			res.cookie('referrer_url', referrer_url, REFERRER_COOKIE_OPTIONS);
 		}
+	
+		if (!req.signedCookies.landing_url) {
+			res.cookie('landing_url', full_url, REFERRER_COOKIE_OPTIONS);
+		}
+	
+		const httpStatusCode = state.app.currentPage.type === 404 ? 404 : 200;
+		res.status(httpStatusCode).send(html);
 	});
-
-
 };
 
 const pageRendering = (req, res) => {
